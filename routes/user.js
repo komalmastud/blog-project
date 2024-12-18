@@ -1,8 +1,7 @@
 const express = require("express");
-const User = require("../models/user"); // Assuming you have a User model defined
+const router = express.Router();
 
 // Use express.Router
-const router = express.Router();
 
 // Route to render the sign-in page
 router.get("/signin", (req, res) => {
@@ -15,10 +14,18 @@ router.get("/signup", (req, res) => {
 });
 router.post("/signin", async (req, res) => {
   const { email, password } = req.body;
-  console.log(email, password);
-  const user = await User.matchPassword(email, password);
-  console.log("User", user);
-  return res.redirect("/");
+  try {
+    const token = await User.matchPasswordAndGenerateToken(email, password);
+    console.log("token", token);
+    return res.cookie("token", token).redirect("/");
+  } catch (error) {
+    return res.render("signin", {
+      error: "Incorrect Email or Password",
+    });
+  }
+});
+router.get("/logout", (req, res) => {
+  res.clearCookie("token").redirect("/");
 });
 // Route to handle sign-up form submissions
 router.post("/signup", async (req, res) => {
