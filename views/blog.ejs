@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('partials/head') %>
+    <title><%= blog.title %></title>
+  </head>
+  <body>
+    <%- include('partials/nav') %>
+    <div class="container mt-4">
+      <!-- Blog title -->
+      <h1><%= blog.title %></h1>
+
+      <!-- Blog content -->
+      <pre><%= blog.body %></pre>
+
+      <!-- Blog cover image -->
+      <img
+        src="<%= blog.coverImageURL || '/images/images.png' %>"
+        alt="Cover Image"
+        width="200px"
+      />
+    </div>
+
+    <!-- Blog author information -->
+    <div class="container mt-4">
+      <% if (blog.createdBy) { %>
+      <img
+        src="<%= blog.createdBy.profileImageURL || '/images/images.png' %>"
+        width="50px"
+        alt="Author Image"
+      />
+      <span><%= blog.createdBy.fullName %></span>
+      <% } else { %>
+      <p>Author information not available</p>
+      <% } %>
+    </div>
+
+    <div class="container mt-3">
+      <h1>Comments (<%= comments.length %>)</h1>
+
+      <% if (locals.user) { %>
+      <form action="/blog/comment/<%= blog._id %>" method="post">
+        <div class="mb-3">
+          <input
+            type="text"
+            name="content"
+            class="form-control"
+            placeholder="Enter your comment"
+          />
+          <button class="btn btn-sm btn-primary" type="submit">Submit</button>
+        </div>
+      </form>
+      <% } %>
+
+      <div class="mt-3">
+        <% comments.forEach(comment => { %>
+        <div>
+          <img
+            src="<%= comment.createdBy.profileImageURL || '/images/images.png' %>"
+            width="50px"
+            alt="Author Image"
+          />
+          <span><%= comment.createdBy.fullName %></span>
+          <pre><%= comment.content %></pre>
+        </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Include scripts -->
+    <%- include('partials/scripts') %>
+  </body>
+</html>

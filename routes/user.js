@@ -1,51 +1,57 @@
+// routes/user.js
 const express = require("express");
 const router = express.Router();
-
-// Use express.Router
+const User = require("../models/user");
 
 // Route to render the sign-in page
 router.get("/signin", (req, res) => {
-  return res.render("signin"); // Renders the 'signin' view
+  return res.render("signin");
 });
 
 // Route to render the sign-up page
 router.get("/signup", (req, res) => {
-  return res.render("signup"); // Renders the 'signup' view
+  return res.render("signup");
 });
+
+// Handle sign-in
 router.post("/signin", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const token = await User.matchPasswordAndGenerateToken(email, password);
-    console.log("token", token);
-    return res.cookie("token", token).redirect("/");
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.render("signin", { error: "User not found" });
+    }
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.render("signin", { error: "Incorrect password" });
+    }
+    const token = user.generateAuthToken();
+    res.cookie("token", token).redirect("/");
   } catch (error) {
-    return res.render("signin", {
-      error: "Incorrect Email or Password",
-    });
+    res.render("signin", { error: "An error occurred during sign-in" });
   }
 });
+
+// Handle logout
 router.get("/logout", (req, res) => {
   res.clearCookie("token").redirect("/");
 });
-// Route to handle sign-up form submissions
+
+// Handle sign-up
 router.post("/signup", async (req, res) => {
+  const { fullName, email, password } = req.body;
   try {
-    const { fullName, email, password } = req.body;
-
-    // Create a new user in the database
-    await User.create({
-      fullName,
-      email,
-      password,
-    });
-
-    // Redirect to the home page or another desired route
-    return res.redirect("/");
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.render("signup", { error: "Email already in use" });
+    }
+    const user = new User({ fullName, email, password });
+    await user.save();
+    const token = user.generateAuthToken();
+    res.cookie("token", token).redirect("/");
   } catch (error) {
-    console.error("Error creating user:", error);
-    return res.status(500).send("An error occurred while signing up.");
+    res.render("signup", { error: "An error occurred during sign-up" });
   }
 });
 
-// Export the router so it can be used in other files
 module.exports = router;

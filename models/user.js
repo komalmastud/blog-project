@@ -42,7 +42,7 @@ userSchema.pre("save", function (next) {
   if (!user.isModified("password")) return next();
 
   // Generate salt and hash the password
-  const salt = "someRandamSalt"; // Use 'hex' encoding
+  const salt = randomBytes(16).toString("hex"); // Generate random salt
   const hashedPassword = createHmac("sha256", salt)
     .update(user.password)
     .digest("hex");
@@ -53,23 +53,29 @@ userSchema.pre("save", function (next) {
 
   next();
 });
+
+// Static method to match the password and generate token
 userSchema.static(
   "matchPasswordAndGenerateToken",
   async function (email, password) {
     const user = await this.findOne({ email });
     if (!user) throw new Error("User not Found");
-    console.log(user);
-    const salt = randomBytes(16).toString();
-    const hashedPassword = user.password;
-    const userProvidedHash = createHmac("sha256", salt)
-      .update(user.password)
+
+    // Compare the provided password with the hashed password in the database
+    const hashedPassword = createHmac("sha256", user.salt)
+      .update(password) // Use the password provided by the user
       .digest("hex");
-    if (hashedPassword !== userProvidedHash)
+
+    if (hashedPassword !== user.password) {
       throw new Error("Incorrect password");
+    }
+
+    // Generate token for the user
     const token = createTokenForUser(user);
     return token;
   }
 );
+
 // Create the model
 const User = model("user", userSchema);
 

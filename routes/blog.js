@@ -1,69 +1,90 @@
+// routes/blog.js
 const { Router } = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
-const router = Router();
 const Blog = require("../models/blog");
+const Comment = require("../models/comment");
 
-// Function to Ensure Folder Exists
+const router = Router();
+
+// Function to ensure folder exists
 const ensureDirectoryExists = (filePath) => {
   if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(filePath, { recursive: true }); // Create the directory recursively
+    fs.mkdirSync(filePath, { recursive: true });
   }
 };
 
-// Configure Multer Storage
+// Configure Multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Validate if req.user exists
-    if (!req.user || !req.user._id) {
-      return cb(new Error("User not authenticated"), null);
-    }
-
-    // Create dynamic path based on user ID
-    const uploadPath = `./public/uploads/${req.user._id}`;
-    ensureDirectoryExists(uploadPath); // Ensure the folder exists
-
-    cb(null, uploadPath); // Pass the upload path to Multer
+    const uploadPath = "./public/uploads";
+    ensureDirectoryExists(uploadPath);
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Generate unique file name
     const fileName = `${Date.now()}-${file.originalname}`;
     cb(null, fileName);
   },
 });
 
-// Initialize Multer Middleware
 const upload = multer({ storage: storage });
 
-// Route: Render Add New Blog Page
-router.get("/add-new", (req, res) => {
-  return res.render("addBlog", {
-    user: req.user,
-  });
+// Route to render a specific blog post and its comments
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const blog = await Blog.findById(id).populate("createdBy");
+    if (!blog) {
+      return res.status(404).send("Blog not found");
+    }
+
+    const comments = await Comment.find({ blogId: id }).populate("createdBy");
+
+    console.log("comments", comments);
+    console.log("blog", blog);
+    res.render("blog", {
+      user: req.user,
+      blog,
+      comments,
+    });
+  } catch (error) {
+    console.error("Error fetching blog or comments:", error);
+    res.status(500).send("An error occurred while fetching the blog.");
+  }
 });
 
-// Route: Handle File Upload and Form Submission
+// Route to handle file upload and form submission for a new blog
 router.post("/", upload.single("coverImage"), async (req, res) => {
   try {
     const { title, body } = req.body;
+    const coverImageURL = req.file ? `uploads/${req.file.filename}` : null;
 
-    // Create a new blog post
     const blog = await Blog.create({
       title,
       body,
-      createdBy: req.user._id,
-      coverImageURL: `uploads/${req.user._id}/${req.file.filename}`,
+      coverImageURL,
     });
 
-    console.log("Blog created successfully");
-    console.log(req.body); // Logs form fields
-    console.log(req.file); // Logs uploaded file details
-
-    return res.redirect(`/blog/${blog._id}`);
+    res.redirect(`/blog/${blog._id}`);
   } catch (err) {
     console.error("Error creating blog:", err);
-    return res.status(500).send("An error occurred while creating the blog.");
+    res.status(500).send("An error occurred while creating the blog.");
+  }
+});
+
+// Route to handle comment submission
+router.post("/comment/:blogId", async (req, res) => {
+  try {
+    const comment = await Comment.create({
+      content: req.body.content,
+      blogId: req.params.blogId,
+      createdBy: req.user._id,
+    });
+    return res.redirect(`/blog/${req.params.blogId}`);
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    res.status(500).send("An error occurred while posting the comment.");
   }
 });
 
